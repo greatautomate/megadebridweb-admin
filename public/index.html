@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MedusaXD Debrid - Premium Link Generator</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🇵🇸 MedusaXD Debrid</h1>
+            <p>Premium Link Generator & Downloader</p>
+        </header>
+
+        <!-- Login Screen -->
+        <div id="loginScreen" class="screen">
+            <div class="login-form">
+                <h2>🔐 User Login</h2>
+                <form id="loginForm">
+                    <input type="text" id="username" placeholder="Username" required>
+                    <input type="password" id="password" placeholder="Password" required>
+                    <button type="submit">Login</button>
+                </form>
+                <div id="loginError" class="error"></div>
+            </div>
+        </div>
+
+        <!-- Main Application -->
+        <div id="mainScreen" class="screen" style="display: none;">
+            <div class="user-info">
+                <div class="user-details">
+                    <span id="welcomeUser">Welcome!</span>
+                    <span id="userLimits"></span>
+                </div>
+                <div class="user-actions">
+                    <button id="historyBtn" class="secondary-btn">📊 History</button>
+                    <button id="adminBtn" class="admin-btn" style="display: none;">⚙️ Admin</button>
+                    <button id="logoutBtn" class="logout-btn">🚪 Logout</button>
+                </div>
+            </div>
+
+            <div class="debrid-form">
+                <h2>🚀 Generate Premium Links</h2>
+                <form id="debridForm">
+                    <input type="url" id="linkInput" placeholder="Enter file hosting link (e.g., rapidgator, uploaded, etc.)" required>
+                    <button type="submit" id="generateBtn">Generate Premium Link</button>
+                </form>
+
+                <div id="loading" class="loading" style="display: none;">
+                    <div class="spinner"></div>
+                    <p>Processing your link...</p>
+                </div>
+
+                <div id="result" class="result" style="display: none;">
+                    <h3>✅ Premium Link Generated!🇵🇸</h3>
+                    <div class="result-content">
+                        <p><strong>Filename:</strong> <span id="filename"></span></p>
+                        <div class="download-section">
+                            <a id="downloadLink" href="#" target="_blank" class="download-btn">
+                                📥 Download Now
+                            </a>
+                            <button id="copyBtn" class="copy-btn">📋 Copy Link</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="error" class="error" style="display: none;"></div>
+            </div>
+
+            <!-- History Modal -->
+            <div id="historyModal" class="modal" style="display: none;">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3>📊 Your Generation History</h3>
+                        <span class="close" id="closeHistory">&times;</span>
+                    </div>
+                    <div class="modal-body">
+                        <div id="historyList"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
