@@ -7,7 +7,7 @@ class Database {
         const dbPath = process.env.NODE_ENV === 'production' 
             ? '/tmp/medusaxd.db' 
             : path.join(__dirname, 'medusaxd.db');
-
+            
         this.db = new sqlite3.Database(dbPath, (err) => {
             if (err) {
                 console.error('Error opening database:', err.message);
@@ -66,21 +66,32 @@ class Database {
     }
 
     async createDefaultAdmin() {
-        const adminExists = await this.getUserByUsername('admin');
+        // Check if the new admin exists
+        const adminExists = await this.getUserByUsername('medusaxd');
         if (!adminExists) {
-            const hashedPassword = await bcrypt.hash('admin123', 10);
+            const hashedPassword = await bcrypt.hash('aiyman123', 10);
             this.db.run(
                 `INSERT INTO users (username, password, email, role, daily_limit) 
                  VALUES (?, ?, ?, ?, ?)`,
-                ['admin', hashedPassword, 'admin@medusaxd.com', 'admin', 999999],
+                ['medusaxd', hashedPassword, 'admin@medusaxd.com', 'admin', 999999],
                 function(err) {
                     if (err) {
                         console.error('Error creating admin:', err.message);
                     } else {
-                        console.log('✅ Default admin user created (admin/admin123)');
+                        console.log('✅ Default admin user created (medusaxd/aiyman123)');
                     }
                 }
             );
+        }
+
+        // Clean up old admin account if it exists
+        const oldAdmin = await this.getUserByUsername('admin');
+        if (oldAdmin && oldAdmin.role === 'admin') {
+            this.db.run('DELETE FROM users WHERE username = ?', ['admin'], (err) => {
+                if (!err) {
+                    console.log('🗑️ Old admin account removed');
+                }
+            });
         }
     }
 
@@ -130,7 +141,7 @@ class Database {
         return new Promise((resolve, reject) => {
             const fields = Object.keys(userData).map(key => `${key} = ?`).join(', ');
             const values = [...Object.values(userData), id];
-
+            
             this.db.run(
                 `UPDATE users SET ${fields} WHERE id = ?`,
                 values,
