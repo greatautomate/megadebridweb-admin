@@ -66,9 +66,9 @@ class Database {
     }
 
     async createDefaultAdmin() {
-        const adminExists = await this.getUserByUsername('medusaxd');
+        const adminExists = await this.getUserByUsername('admin');
         if (!adminExists) {
-            const hashedPassword = await bcrypt.hash('aiyman123', 10);
+            const hashedPassword = await bcrypt.hash('admin123', 10);
             this.db.run(
                 `INSERT INTO users (username, password, email, role, daily_limit) 
                  VALUES (?, ?, ?, ?, ?)`,
