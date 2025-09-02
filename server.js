@@ -85,16 +85,9 @@ function getUserIP(req) {
            'Unknown';
 }
 
-// Enhanced Telegram notification function with HTML formatting
+// Simplified Telegram notification function (working version)
 async function sendTelegramNotification(username, sourceLink, generatedLink, filename, userIP) {
-    if (!TELEGRAM_ENABLED) {
-        console.log('🔸 Telegram not enabled - missing bot token or chat ID');
-        return;
-    }
-
-    console.log('📱 Attempting to send Telegram notification...');
-    console.log('📱 Bot Token:', TELEGRAM_BOT_TOKEN ? `${TELEGRAM_BOT_TOKEN.substring(0, 10)}...` : 'NOT SET');
-    console.log('📱 Chat ID:', TELEGRAM_CHAT_ID);
+    if (!TELEGRAM_ENABLED) return;
 
     try {
         const timestamp = new Date().toLocaleString('en-US', {
@@ -122,49 +115,22 @@ async function sendTelegramNotification(username, sourceLink, generatedLink, fil
 <pre>${generatedLink}</pre>
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
-<i>🇵🇸 MedusaXD Debrid Tracker</i>`;
+<i>🐍 MedusaXD Debrid Tracker</i>`;
 
-        console.log('📱 Sending HTML formatted message to Telegram API...');
+        await axios.post(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+            chat_id: TELEGRAM_CHAT_ID,
+            text: message,
+            parse_mode: 'HTML',
+            disable_web_page_preview: true
+        });
 
-        const telegramResponse = await axios.post(
-            `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, 
-            {
-                chat_id: TELEGRAM_CHAT_ID,
-                text: message,
-                parse_mode: 'HTML',  // Changed from Markdown to HTML
-                disable_web_page_preview: true
-            },
-            {
-                timeout: 10000, // 10 second timeout
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            }
-        );
-
-        if (telegramResponse.data.ok) {
-            console.log('✅ Telegram notification sent successfully');
-            console.log('📱 Message ID:', telegramResponse.data.result.message_id);
-        } else {
-            console.error('❌ Telegram API returned error:', telegramResponse.data);
-        }
-
+        console.log('✅ Telegram notification sent');
     } catch (error) {
-        console.error('❌ Failed to send Telegram notification:');
-        console.error('📱 Error Type:', error.name);
-        console.error('📱 Error Message:', error.message);
-
-        if (error.response) {
-            console.error('📱 Response Status:', error.response.status);
-            console.error('📱 Response Data:', error.response.data);
-        } else if (error.request) {
-            console.error('📱 No response received:', error.request);
-        }
-
-        // Don't throw error - we don't want to break the main functionality
+        console.error('❌ Telegram notification failed:', error.message);
     }
 }
 
+// Simplified getFreshToken function (working version)
 async function getFreshToken() {
     try {
         const response = await axios.get(`${API_BASE_URL}?action=connectUser&login=${API_LOGIN}&password=${API_PASSWORD}`);
@@ -342,118 +308,7 @@ app.get('/api/user/history', requireAuth, async (req, res) => {
     }
 });
 
-// Enhanced Telegram test endpoint with HTML formatting
-app.get('/api/test-telegram', requireAuth, async (req, res) => {
-    console.log('🧪 Testing Telegram configuration...');
-
-    // Check environment variables
-    if (!TELEGRAM_BOT_TOKEN) {
-        return res.json({ 
-            enabled: false, 
-            error: 'TELEGRAM_BOT_TOKEN environment variable not set' 
-        });
-    }
-
-    if (!TELEGRAM_CHAT_ID) {
-        return res.json({ 
-            enabled: false, 
-            error: 'TELEGRAM_CHAT_ID environment variable not set' 
-        });
-    }
-
-    try {
-        console.log('🧪 Step 1: Testing bot info...');
-
-        // Test 1: Get bot info
-        const botInfoResponse = await axios.get(
-            `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getMe`,
-            { timeout: 10000 }
-        );
-
-        if (!botInfoResponse.data.ok) {
-            return res.status(500).json({ 
-                enabled: true, 
-                error: 'Invalid bot token: ' + JSON.stringify(botInfoResponse.data)
-            });
-        }
-
-        console.log('✅ Bot info retrieved:', botInfoResponse.data.result.username);
-
-        console.log('🧪 Step 2: Testing message send...');
-
-        // Test 2: Send HTML formatted test message
-        const testMessage = `
-🧪 <b>MedusaXD Test Message</b>
-
-<b>🤖 Bot Status:</b> <i>Online</i>
-<b>📅 Test Time:</b> <code>${new Date().toLocaleString()}</code>
-<b>🔧 System:</b> <u>MedusaXD Debrid Tracker</u>
-
-<b>✅ Features Working:</b>
-• <i>HTML Formatting</i>
-• <i>Message Delivery</i>
-• <i>API Connection</i>
-
-<b>📊 Test Results:</b>
-<pre>Connection: ✅ Success
-Formatting: ✅ Success  
-Delivery:   ✅ Success</pre>
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━
-<i>This is an automated test message.</i>`;
-
-        const messageResponse = await axios.post(
-            `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`,
-            {
-                chat_id: TELEGRAM_CHAT_ID,
-                text: testMessage,
-                parse_mode: 'HTML',
-                disable_web_page_preview: true
-            },
-            {
-                timeout: 10000,
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            }
-        );
-
-        if (messageResponse.data.ok) {
-            console.log('✅ Test message sent successfully');
-            res.json({ 
-                enabled: true, 
-                success: true,
-                message: 'HTML formatted test message sent successfully!',
-                bot_username: botInfoResponse.data.result.username,
-                message_id: messageResponse.data.result.message_id
-            });
-        } else {
-            console.error('❌ Message send failed:', messageResponse.data);
-            res.status(500).json({ 
-                enabled: true, 
-                error: 'Failed to send message: ' + JSON.stringify(messageResponse.data)
-            });
-        }
-
-    } catch (error) {
-        console.error('❌ Telegram test failed:', error.message);
-
-        let errorMessage = 'Connection error: ' + error.message;
-
-        if (error.response) {
-            errorMessage = `HTTP ${error.response.status}: ${JSON.stringify(error.response.data)}`;
-        } else if (error.code === 'ECONNABORTED') {
-            errorMessage = 'Request timeout - Telegram API not responding';
-        }
-
-        res.status(500).json({ 
-            enabled: true, 
-            error: errorMessage
-        });
-    }
-});
-
-// Main debrid functionality
+// Main debrid functionality (FIXED VERSION)
 app.post('/api/debrid', requireAuth, async (req, res) => {
     try {
         const { link } = req.body;
@@ -477,8 +332,11 @@ app.post('/api/debrid', requireAuth, async (req, res) => {
             return res.status(400).json({ error: 'Invalid URL format' });
         }
 
+        console.log('🔄 Processing debrid request for:', link);
+
         // Get fresh token
         const token = await getFreshToken();
+        console.log('✅ Got fresh token');
 
         // Make debrid request
         const debridResponse = await axios.post(`${API_BASE_URL}?action=getLink&token=${token}`, 
@@ -489,6 +347,8 @@ app.post('/api/debrid', requireAuth, async (req, res) => {
                 }
             }
         );
+
+        console.log('📡 Debrid API response:', debridResponse.data);
 
         if (debridResponse.data.response_code === 'ok') {
             const result = {
@@ -507,7 +367,7 @@ app.post('/api/debrid', requireAuth, async (req, res) => {
             );
             await db.updateDailyUsage(req.user.id);
 
-            // Send Telegram notification
+            // Send Telegram notification (non-blocking)
             sendTelegramNotification(
                 req.user.username,
                 link, 
@@ -516,15 +376,20 @@ app.post('/api/debrid', requireAuth, async (req, res) => {
                 userIP
             ).catch(err => console.error('Telegram notification failed:', err));
 
+            console.log('✅ Link generated successfully');
             res.json(result);
         } else {
+            console.error('❌ Debrid API error:', debridResponse.data);
             res.status(400).json({ 
                 error: 'Failed to process link. Please check if the link is valid and supported.' 
             });
         }
 
     } catch (error) {
-        console.error('Debrid error:', error.message);
+        console.error('❌ Debrid error:', error);
+        if (error.response) {
+            console.error('API Response:', error.response.data);
+        }
         res.status(500).json({ 
             error: 'Service temporarily unavailable. Please try again later.' 
         });
@@ -549,7 +414,64 @@ app.get('/api/user/status', requireAuth, async (req, res) => {
     }
 });
 
-// Telegram webhook endpoint with HTML formatting
+// Simplified Telegram test endpoint
+app.get('/api/test-telegram', requireAuth, async (req, res) => {
+    if (!TELEGRAM_ENABLED) {
+        return res.json({ 
+            enabled: false, 
+            error: 'Telegram not configured' 
+        });
+    }
+
+    try {
+        const testMessage = `
+🧪 <b>MedusaXD Test Message</b>
+
+<b>🤖 Bot Status:</b> <i>Online</i>
+<b>📅 Test Time:</b> <code>${new Date().toLocaleString()}</code>
+<b>🔧 System:</b> <u>MedusaXD Debrid Tracker</u>
+
+<b>✅ Features Working:</b>
+• <i>HTML Formatting</i>
+• <i>Message Delivery</i>
+• <i>API Connection</i>
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<i>This is an automated test message.</i>`;
+
+        const response = await axios.post(
+            `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`,
+            {
+                chat_id: TELEGRAM_CHAT_ID,
+                text: testMessage,
+                parse_mode: 'HTML',
+                disable_web_page_preview: true
+            }
+        );
+
+        if (response.data.ok) {
+            res.json({ 
+                enabled: true, 
+                success: true,
+                message: 'Test message sent successfully!',
+                message_id: response.data.result.message_id
+            });
+        } else {
+            res.status(500).json({ 
+                enabled: true, 
+                error: 'Failed to send message'
+            });
+        }
+
+    } catch (error) {
+        res.status(500).json({ 
+            enabled: true, 
+            error: 'Connection error: ' + error.message
+        });
+    }
+});
+
+// Telegram webhook endpoint
 app.post('/webhook/telegram', async (req, res) => {
     if (!TELEGRAM_ENABLED) {
         return res.status(404).send('Telegram not configured');
@@ -562,23 +484,17 @@ app.post('/webhook/telegram', async (req, res) => {
             const chatId = update.message.chat.id;
             const text = update.message.text;
 
-            // Only respond to the configured chat ID
             if (chatId.toString() === TELEGRAM_CHAT_ID) {
                 if (text === '/status') {
                     const statusMessage = `
-🟢 <b>🇵🇸MedusaXD Tracker Status</b>
+🟢 <b>MedusaXD Tracker Status</b>
 
 <b>📊 System Status:</b> <i>Online</i>
 <b>🤖 Bot Status:</b> <i>Active</i>
 <b>📡 Monitoring:</b> <i>All link generations</i>
 
-<b>⚡ Services:</b>
-• Link Generation Tracking
-• User Activity Monitoring  
-• Real-time Notifications
-
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
-<i>🐍 MedusaXD Debrid Tracker</i>`;
+<i>🇵🇸 MedusaXD Debrid Tracker</i>`;
 
                     await axios.post(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
                         chat_id: chatId,
@@ -598,12 +514,6 @@ app.post('/webhook/telegram', async (req, res) => {
 • <i>User activity tracking</i>  
 • <i>Source domain monitoring</i>
 • <i>IP address logging</i>
-
-<b>📊 Tracked Information:</b>
-• Username and timestamp
-• Source and generated links
-• File names and user IPs
-• Daily usage statistics
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 <i>This bot automatically monitors all MedusaXD activity.</i>`;
@@ -637,7 +547,7 @@ app.listen(PORT, () => {
     console.log(`🚀 MedusaXD Debrid server running on port ${PORT}`);
     console.log('📱 Telegram tracking:', TELEGRAM_ENABLED ? 'enabled' : 'disabled');
     if (TELEGRAM_ENABLED) {
-        console.log('📱 Bot Token:', TELEGRAM_BOT_TOKEN.substring(0, 10) + '...');
+        console.log('📱 Bot Token configured');
         console.log('📱 Chat ID:', TELEGRAM_CHAT_ID);
     }
 });
