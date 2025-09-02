@@ -7,7 +7,7 @@ class Database {
         const dbPath = process.env.NODE_ENV === 'production' 
             ? '/tmp/medusaxd.db' 
             : path.join(__dirname, 'medusaxd.db');
-            
+
         this.db = new sqlite3.Database(dbPath, (err) => {
             if (err) {
                 console.error('Error opening database:', err.message);
@@ -141,7 +141,7 @@ class Database {
         return new Promise((resolve, reject) => {
             const fields = Object.keys(userData).map(key => `${key} = ?`).join(', ');
             const values = [...Object.values(userData), id];
-            
+
             this.db.run(
                 `UPDATE users SET ${fields} WHERE id = ?`,
                 values,
