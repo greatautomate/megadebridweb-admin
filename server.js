@@ -115,7 +115,7 @@ async function sendTelegramNotification(username, sourceLink, generatedLink, fil
 <pre>${generatedLink}</pre>
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
-<i>🐍 MedusaXD Debrid Tracker</i>`;
+<i>🇵🇸 MedusaXD Debrid Tracker</i>`;
 
         await axios.post(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
             chat_id: TELEGRAM_CHAT_ID,
