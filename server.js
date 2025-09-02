@@ -122,7 +122,7 @@ async function sendTelegramNotification(username, sourceLink, generatedLink, fil
 <pre>${generatedLink}</pre>
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
-<i>🐍 MedusaXD Debrid Tracker</i>`;
+<i>🇵🇸 MedusaXD Debrid Tracker</i>`;
 
         console.log('📱 Sending HTML formatted message to Telegram API...');
 
@@ -566,7 +566,7 @@ app.post('/webhook/telegram', async (req, res) => {
             if (chatId.toString() === TELEGRAM_CHAT_ID) {
                 if (text === '/status') {
                     const statusMessage = `
-🟢 <b>MedusaXD Tracker Status</b>
+🟢 <b>🇵🇸MedusaXD Tracker Status</b>
 
 <b>📊 System Status:</b> <i>Online</i>
 <b>🤖 Bot Status:</b> <i>Active</i>
