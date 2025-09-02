@@ -15,6 +15,11 @@ class AdminDashboard {
         this.adminLogout = document.getElementById('adminLogout');
         this.refreshHistory = document.getElementById('refreshHistory');
 
+        // Telegram elements
+        this.checkTelegramBtn = document.getElementById('checkTelegramBtn');
+        this.testTelegramBtn = document.getElementById('testTelegramBtn');
+        this.telegramStatusResult = document.getElementById('telegramStatusResult');
+
         // Tables
         this.usersTable = document.getElementById('usersTable').getElementsByTagName('tbody')[0];
         this.historyTable = document.getElementById('historyTable').getElementsByTagName('tbody')[0];
@@ -43,6 +48,15 @@ class AdminDashboard {
         this.backToMain.addEventListener('click', () => window.location.href = '/');
         this.adminLogout.addEventListener('click', () => this.logout());
         this.refreshHistory.addEventListener('click', () => this.loadHistory());
+
+        // Telegram testing
+        if (this.checkTelegramBtn) {
+            this.checkTelegramBtn.addEventListener('click', () => this.checkTelegramStatus());
+        }
+
+        if (this.testTelegramBtn) {
+            this.testTelegramBtn.addEventListener('click', () => this.testTelegram());
+        }
 
         // Modal
         this.closeUserModal.addEventListener('click', () => this.hideUserModal());
@@ -171,6 +185,84 @@ class AdminDashboard {
         this.activeUsers.textContent = activeUsers;
         this.totalGenerations.textContent = totalGens;
         this.todayUsage.textContent = todayGens;
+    }
+
+    async checkTelegramStatus() {
+        this.showTelegramStatus('Checking Telegram configuration...', 'info');
+
+        try {
+            const response = await fetch('/api/test-telegram');
+            const data = await response.json();
+
+            if (response.ok && data.success) {
+                this.showTelegramStatus(
+                    `✅ Telegram Status: WORKING
+
+Bot Username: @${data.bot_username}
+Test Message ID: ${data.message_id}
+Status: Connected and functional`, 
+                    'success'
+                );
+            } else {
+                this.showTelegramStatus(
+                    `❌ Telegram Status: ERROR
+
+${data.error || 'Unknown error occurred'}
+
+Please check:
+1. Bot token is valid
+2. Chat ID is correct  
+3. Bot is added to the chat
+4. Network connectivity`, 
+                    'error'
+                );
+            }
+        } catch (error) {
+            this.showTelegramStatus(
+                `❌ Connection Error: ${error.message}
+
+Unable to reach the server for Telegram testing.`, 
+                'error'
+            );
+        }
+    }
+
+    async testTelegram() {
+        this.showTelegramStatus('Sending test message...', 'info');
+
+        try {
+            const response = await fetch('/api/test-telegram');
+            const data = await response.json();
+
+            if (response.ok && data.success) {
+                this.showTelegramStatus(
+                    `✅ Test Message Sent Successfully!
+
+Bot: @${data.bot_username}
+Message ID: ${data.message_id}
+Time: ${new Date().toLocaleString()}
+
+Check your Telegram chat for the test message.`, 
+                    'success'
+                );
+            } else {
+                this.showTelegramStatus(
+                    `❌ Test Failed: ${data.error}`, 
+                    'error'
+                );
+            }
+        } catch (error) {
+            this.showTelegramStatus(
+                `❌ Test Error: ${error.message}`, 
+                'error'
+            );
+        }
+    }
+
+    showTelegramStatus(message, type) {
+        this.telegramStatusResult.textContent = message;
+        this.telegramStatusResult.className = `status-result ${type}`;
+        this.telegramStatusResult.style.display = 'block';
     }
 
     showAddUserModal() {
