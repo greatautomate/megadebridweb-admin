@@ -2,11 +2,9 @@ const express = require('express');
 const axios = require('axios');
 const path = require('path');
 const session = require('express-session');
-const MongoStore = require('connect-mongo');
 const bcrypt = require('bcrypt');
 const rateLimit = require('express-rate-limit');
 const Database = require('./database');
-const { generateUsername, generatePassword, escapeHtml } = require('./utils/generators');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -23,16 +21,10 @@ app.use(limiter);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static('public'));
-
-// MongoDB session store
 app.use(session({
     secret: process.env.SESSION_SECRET || 'medusaxd-secret-key',
     resave: false,
     saveUninitialized: false,
-    store: MongoStore.create({
-        mongoUrl: process.env.MONGODB_URI || 'mongodb://localhost:27017/medusaxd',
-        collectionName: 'sessions'
-    }),
     cookie: { maxAge: 24 * 60 * 60 * 1000 } // 24 hours
 }));
 
@@ -40,7 +32,6 @@ app.use(session({
 const API_LOGIN = process.env.API_LOGIN || 'medusaxd';
 const API_PASSWORD = process.env.API_PASSWORD || 'Vnfrew001';
 const API_BASE_URL = 'https://www.mega-debrid.eu/api.php';
-const SITE_URL = process.env.SITE_URL || 'https://your-app.onrender.com';
 
 // Telegram Configuration
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
@@ -94,7 +85,7 @@ function getUserIP(req) {
            'Unknown';
 }
 
-// Telegram notification functions
+// Simplified Telegram notification function (working version)
 async function sendTelegramNotification(username, sourceLink, generatedLink, filename, userIP) {
     if (!TELEGRAM_ENABLED) return;
 
@@ -107,23 +98,24 @@ async function sendTelegramNotification(username, sourceLink, generatedLink, fil
 
         const sourceDomain = new URL(sourceLink).hostname.replace('www.', '');
 
+        // HTML formatted message for better appearance
         const message = `
 🔗 <b>MedusaXD Link Generated</b>
 
-👤 <b>User:</b> <code>${escapeHtml(username)}</code>
+👤 <b>User:</b> <code>${username}</code>
 📅 <b>Time:</b> <i>${timestamp} UTC</i>
-🌐 <b>Source:</b> <u>${escapeHtml(sourceDomain)}</u>
-📁 <b>Filename:</b> <code>${escapeHtml(filename)}</code>
-🔒 <b>IP Address:</b> <code>${escapeHtml(userIP)}</code>
+🌐 <b>Source:</b> <u>${sourceDomain}</u>
+📁 <b>Filename:</b> <code>${filename}</code>
+🔒 <b>IP Address:</b> <code>${userIP}</code>
 
 <b>📎 Source Link:</b>
-<pre>${escapeHtml(sourceLink)}</pre>
+<pre>${sourceLink}</pre>
 
 <b>⬇️ Generated Link:</b>
-<pre>${escapeHtml(generatedLink)}</pre>
+<pre>${generatedLink}</pre>
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
-<i>🇵🇸 MedusaXD Debrid Tracker</i>`;
+<i>🐍 MedusaXD Debrid Tracker</i>`;
 
         await axios.post(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
             chat_id: TELEGRAM_CHAT_ID,
@@ -138,32 +130,7 @@ async function sendTelegramNotification(username, sourceLink, generatedLink, fil
     }
 }
 
-async function sendAdminNotification(username, telegramUsername) {
-    if (!TELEGRAM_ENABLED) return;
-
-    try {
-        const message = `
-🆕 <b>New User Registration</b>
-
-👤 <b>Username:</b> <code>${escapeHtml(username)}</code>
-📱 <b>Telegram:</b> @${escapeHtml(telegramUsername)}
-📅 <b>Time:</b> <i>${new Date().toLocaleString()} UTC</i>
-🎯 <b>Daily Limit:</b> 10 links
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━
-<i>🇵🇸 MedusaXD Admin Alert</i>`;
-
-        await axios.post(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
-            chat_id: TELEGRAM_CHAT_ID,
-            text: message,
-            parse_mode: 'HTML'
-        });
-    } catch (error) {
-        console.error('❌ Admin notification failed:', error.message);
-    }
-}
-
-// Working getFreshToken function
+// Simplified getFreshToken function (working version)
 async function getFreshToken() {
     try {
         const response = await axios.get(`${API_BASE_URL}?action=connectUser&login=${API_LOGIN}&password=${API_PASSWORD}`);
@@ -179,370 +146,7 @@ async function getFreshToken() {
     }
 }
 
-// Telegram Bot Handler
-async function handleTelegramUpdate(update) {
-    if (!update.message || !update.message.text) return;
-
-    const message = update.message;
-    const chatId = message.chat.id;
-    const userId = message.from.id;
-    const text = message.text.trim();
-    const chatType = message.chat.type;
-    const telegramUsername = message.from.username || message.from.first_name || 'Unknown';
-
-    // Handle group messages
-    if (chatType !== 'private') {
-        if (text.startsWith('/')) {
-            await sendTelegramMessage(chatId, `
-🤖 <b>MedusaXD Bot</b>
-
-Please send me a private message to use bot commands.
-
-<b>📱 Start Private Chat:</b>
-Click here → @${process.env.BOT_USERNAME || 'your_bot_username'}
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━
-<i>🇵🇸 MedusaXD Debrid Bot</i>`);
-        }
-        return;
-    }
-
-    try {
-        switch (text) {
-            case '/start':
-                await handleStartCommand(chatId, telegramUsername);
-                break;
-            case '/register':
-                await handleRegisterCommand(chatId, userId, telegramUsername);
-                break;
-            case '/resetpass':
-                await handleResetPasswordCommand(chatId, userId);
-                break;
-            case '/myuser':
-                await handleMyUserCommand(chatId, userId);
-                break;
-            case '/help':
-                await handleHelpCommand(chatId);
-                break;
-            case '/status':
-                await handleStatusCommand(chatId);
-                break;
-            default:
-                if (text.startsWith('/')) {
-                    await sendTelegramMessage(chatId, `
-❓ <b>Unknown Command</b>
-
-Use /help to see available commands.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━
-<i>🇵🇸 MedusaXD Bot</i>`);
-                }
-                break;
-        }
-    } catch (error) {
-        console.error('Bot command error:', error);
-        await sendTelegramMessage(chatId, `
-❌ <b>Error</b>
-
-Something went wrong. Please try again later.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━
-<i>🇵🇸 MedusaXD Bot</i>`);
-    }
-}
-
-async function handleStartCommand(chatId, telegramUsername) {
-    const message = `
-👋 <b>Welcome to MedusaXD Bot!</b>
-
-Hello <b>${escapeHtml(telegramUsername)}</b>! I can help you create an account for MedusaXD Debrid.
-
-<b>🚀 Quick Start:</b>
-• Send /register to create your account
-• Get instant access to premium links
-• 10 free generations daily
-
-<b>📋 Available Commands:</b>
-/register - Create new account
-/myuser - Show account info
-/resetpass - Reset password
-/help - Command list
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━
-<i>🇵🇸 Ready to get started?</i>`;
-
-    await sendTelegramMessage(chatId, message);
-}
-
-async function handleRegisterCommand(chatId, userId, telegramUsername) {
-    try {
-        // Check if user already exists
-        const existingUser = await db.getUserByTelegramId(userId);
-
-        if (existingUser) {
-            const message = `
-✅ <b>Already Registered</b>
-
-You already have an account!
-
-<b>🔑 Your Username:</b> <code>${escapeHtml(existingUser.username)}</code>
-<b>🌐 Website:</b> <a href="${SITE_URL}">${SITE_URL}</a>
-<b>🎯 Daily Limit:</b> ${existingUser.daily_limit} links
-
-<b>💡 Need help?</b>
-• /resetpass - Get new password
-• /myuser - View account details
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━
-<i>🇵🇸 Welcome back!</i>`;
-
-            await sendTelegramMessage(chatId, message);
-            return;
-        }
-
-        // Generate new credentials
-        let username, attempts = 0;
-        do {
-            username = generateUsername();
-            attempts++;
-            if (attempts > 10) throw new Error('Failed to generate unique username');
-        } while (await db.getUserByUsername(username));
-
-        const password = generatePassword();
-        const hashedPassword = await bcrypt.hash(password, 10);
-
-        // Create user in database
-        const userData = {
-            username,
-            password_hash: hashedPassword,
-            role: 'user',
-            daily_limit: 10,
-            is_active: true,
-            telegram_user_id: userId.toString(),
-            telegram_username: telegramUsername,
-            telegram_chat_id: chatId.toString()
-        };
-
-        await db.createUser(userData);
-
-        // Send credentials to user
-        const message = `
-🎉 <b>Account Created Successfully!</b>
-
-<b>🔑 Your Login Credentials:</b>
-• <b>Username:</b> <code>${username}</code>
-• <b>Password:</b> <code>${password}</code>
-
-<b>🌐 Website:</b> <a href="${SITE_URL}">${SITE_URL}</a>
-
-<b>⚡ Account Details:</b>
-• Daily Limit: 10 links
-• Role: User
-• Status: Active
-
-<b>🔒 Security Notice:</b>
-• This password is shown only once
-• Use /resetpass to generate a new one
-• Keep your credentials safe
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━
-<i>🇵🇸 Welcome to MedusaXD!</i>`;
-
-        await sendTelegramMessage(chatId, message);
-
-        // Send admin notification
-        await sendAdminNotification(username, telegramUsername);
-
-        console.log(`✅ New user registered: ${username} (Telegram: ${telegramUsername})`);
-
-    } catch (error) {
-        console.error('Registration error:', error);
-        await sendTelegramMessage(chatId, `
-❌ <b>Registration Failed</b>
-
-Sorry, something went wrong during registration. Please try again later.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━
-<i>🇵🇸 MedusaXD Bot</i>`);
-    }
-}
-
-async function handleResetPasswordCommand(chatId, userId) {
-    try {
-        const user = await db.getUserByTelegramId(userId);
-
-        if (!user) {
-            await sendTelegramMessage(chatId, `
-❌ <b>Account Not Found</b>
-
-You don't have a registered account yet.
-Send /register to create one.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━
-<i>🇵🇸 MedusaXD Bot</i>`);
-            return;
-        }
-
-        // Generate new password
-        const newPassword = generatePassword();
-        const hashedPassword = await bcrypt.hash(newPassword, 10);
-
-        // Update in database
-        await db.updateUser(user._id, { password_hash: hashedPassword });
-
-        const message = `
-🔄 <b>Password Reset Successful</b>
-
-<b>🔑 Your New Credentials:</b>
-• <b>Username:</b> <code>${escapeHtml(user.username)}</code>
-• <b>New Password:</b> <code>${newPassword}</code>
-
-<b>🌐 Website:</b> <a href="${SITE_URL}">${SITE_URL}</a>
-
-<b>🔒 Security Notice:</b>
-• This password is shown only once
-• Your old password is now invalid
-• Keep your credentials safe
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━
-<i>🇵🇸 Password Updated!</i>`;
-
-        await sendTelegramMessage(chatId, message);
-
-    } catch (error) {
-        console.error('Password reset error:', error);
-        await sendTelegramMessage(chatId, `
-❌ <b>Reset Failed</b>
-
-Sorry, couldn't reset your password. Please try again later.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━
-<i>🇵🇸 MedusaXD Bot</i>`);
-    }
-}
-
-async function handleMyUserCommand(chatId, userId) {
-    try {
-        const user = await db.getUserByTelegramId(userId);
-
-        if (!user) {
-            await sendTelegramMessage(chatId, `
-❌ <b>Account Not Found</b>
-
-You don't have a registered account yet.
-Send /register to create one.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━
-<i>🇵🇸 MedusaXD Bot</i>`);
-            return;
-        }
-
-        const dailyUsage = await db.getDailyUsage(user._id);
-        const remaining = user.daily_limit - dailyUsage;
-
-        const message = `
-👤 <b>Your Account Info</b>
-
-<b>🔑 Account Details:</b>
-• <b>Username:</b> <code>${escapeHtml(user.username)}</code>
-• <b>Role:</b> ${user.role === 'admin' ? '👑 Admin' : '👤 User'}
-• <b>Status:</b> ${user.is_active ? '✅ Active' : '❌ Disabled'}
-
-<b>📊 Usage Today:</b>
-• <b>Used:</b> ${dailyUsage} links
-• <b>Limit:</b> ${user.daily_limit} links  
-• <b>Remaining:</b> ${remaining} links
-
-<b>🌐 Website:</b> <a href="${SITE_URL}">${SITE_URL}</a>
-
-<b>💡 Commands:</b>
-• /resetpass - New password
-• /help - All commands
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━
-<i>🇵🇸 MedusaXD Account</i>`;
-
-        await sendTelegramMessage(chatId, message);
-
-    } catch (error) {
-        console.error('My user error:', error);
-        await sendTelegramMessage(chatId, `
-❌ <b>Error</b>
-
-Couldn't fetch your account info. Please try again later.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━
-<i>🇵🇸 MedusaXD Bot</i>`);
-    }
-}
-
-async function handleHelpCommand(chatId) {
-    const message = `
-🤖 <b>MedusaXD Bot Commands</b>
-
-<b>📋 Account Management:</b>
-/register - Create new account
-/myuser - Show account info
-/resetpass - Reset password
-
-<b>ℹ️ Information:</b>
-/help - Show this help
-/status - Bot status
-
-<b>🔔 Features:</b>
-• Instant account creation
-• Secure password generation  
-• 10 free daily generations
-• Premium link conversion
-
-<b>🌐 Website:</b>
-<a href="${SITE_URL}">${SITE_URL}</a>
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━
-<i>🇵🇸 Need help? Just ask!</i>`;
-
-    await sendTelegramMessage(chatId, message);
-}
-
-async function handleStatusCommand(chatId) {
-    const message = `
-🟢 <b>MedusaXD Bot Status</b>
-
-<b>📊 System Status:</b> <i>Online</i>
-<b>🤖 Bot Status:</b> <i>Active</i>
-<b>🌐 Website:</b> <i>Running</i>
-<b>💾 Database:</b> <i>Connected</i>
-
-<b>⚡ Services:</b>
-• Account Registration
-• Password Management
-• Link Generation Tracking
-• Real-time Notifications
-
-<b>🌐 Website:</b>
-<a href="${SITE_URL}">${SITE_URL}</a>
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━
-<i>🇵🇸 All systems operational!</i>`;
-
-    await sendTelegramMessage(chatId, message);
-}
-
-async function sendTelegramMessage(chatId, text, options = {}) {
-    try {
-        await axios.post(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
-            chat_id: chatId,
-            text: text,
-            parse_mode: 'HTML',
-            disable_web_page_preview: true,
-            ...options
-        });
-    } catch (error) {
-        console.error('Failed to send Telegram message:', error.message);
-    }
-}
-
-// FIXED Authentication routes
+// Authentication routes
 app.post('/api/login', async (req, res) => {
     try {
         const { username, password } = req.body;
@@ -560,20 +164,18 @@ app.post('/api/login', async (req, res) => {
             return res.status(401).json({ error: 'Account disabled' });
         }
 
-        // FIXED: Use password_hash instead of password
-        const validPassword = await bcrypt.compare(password, user.password_hash);
+        const validPassword = await bcrypt.compare(password, user.password);
         if (!validPassword) {
             return res.status(401).json({ error: 'Invalid credentials' });
         }
 
-        // FIXED: Use _id instead of id
-        req.session.userId = user._id;
-        await db.updateLastLogin(user._id);
+        req.session.userId = user.id;
+        await db.updateLastLogin(user.id);
 
         res.json({
             success: true,
             user: {
-                id: user._id,  // FIXED: Use _id
+                id: user.id,
                 username: user.username,
                 role: user.role,
                 daily_limit: user.daily_limit
@@ -597,7 +199,7 @@ app.get('/api/admin/users', requireAdmin, async (req, res) => {
         const userStats = await db.getUserStats();
 
         const usersWithStats = users.map(user => {
-            const stats = userStats.find(s => s._id.toString() === user._id.toString());
+            const stats = userStats.find(s => s.id === user.id);
             return {
                 ...user,
                 total_generations: stats?.total_generations || 0,
@@ -612,7 +214,6 @@ app.get('/api/admin/users', requireAdmin, async (req, res) => {
     }
 });
 
-// FIXED admin user creation route
 app.post('/api/admin/users', requireAdmin, async (req, res) => {
     try {
         const { username, password, email, role, daily_limit } = req.body;
@@ -628,17 +229,13 @@ app.post('/api/admin/users', requireAdmin, async (req, res) => {
 
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        // FIXED: Create user data without telegram fields for admin-created users
-        const userData = {
+        const userId = await db.createUser({
             username,
-            password_hash: hashedPassword,  // FIXED: Use password_hash
-            email: email || undefined,
+            password: hashedPassword,
+            email,
             role: role || 'user',
-            daily_limit: daily_limit || 10,
-            is_active: true
-        };
-
-        const userId = await db.createUser(userData);
+            daily_limit: daily_limit || 10
+        });
 
         res.json({ success: true, userId });
     } catch (error) {
@@ -658,7 +255,7 @@ app.put('/api/admin/users/:id', requireAdmin, async (req, res) => {
         if (req.body.is_active !== undefined) updates.is_active = req.body.is_active;
 
         if (req.body.password) {
-            updates.password_hash = await bcrypt.hash(req.body.password, 10);  // FIXED: Use password_hash
+            updates.password = await bcrypt.hash(req.body.password, 10);
         }
 
         const changes = await db.updateUser(id, updates);
@@ -694,11 +291,7 @@ app.delete('/api/admin/users/:id', requireAdmin, async (req, res) => {
 app.get('/api/admin/history', requireAdmin, async (req, res) => {
     try {
         const history = await db.getAllHistory(200);
-        const formattedHistory = history.map(item => ({
-            ...item,
-            username: item.user_id?.username || 'Unknown'
-        }));
-        res.json(formattedHistory);
+        res.json(history);
     } catch (error) {
         console.error('Get history error:', error);
         res.status(500).json({ error: 'Failed to fetch history' });
@@ -707,7 +300,7 @@ app.get('/api/admin/history', requireAdmin, async (req, res) => {
 
 app.get('/api/user/history', requireAuth, async (req, res) => {
     try {
-        const history = await db.getUserHistory(req.user._id);
+        const history = await db.getUserHistory(req.user.id);
         res.json(history);
     } catch (error) {
         console.error('Get user history error:', error);
@@ -715,7 +308,7 @@ app.get('/api/user/history', requireAuth, async (req, res) => {
     }
 });
 
-// FIXED Main debrid functionality (using your working version)
+// Main debrid functionality (FIXED VERSION)
 app.post('/api/debrid', requireAuth, async (req, res) => {
     try {
         const { link } = req.body;
@@ -725,8 +318,8 @@ app.post('/api/debrid', requireAuth, async (req, res) => {
             return res.status(400).json({ error: 'Link is required' });
         }
 
-        // Check daily limit (FIXED: Use _id)
-        const dailyUsage = await db.getDailyUsage(req.user._id);
+        // Check daily limit
+        const dailyUsage = await db.getDailyUsage(req.user.id);
         if (dailyUsage >= req.user.daily_limit) {
             return res.status(429).json({ 
                 error: `Daily limit reached (${req.user.daily_limit} generations)` 
@@ -741,11 +334,11 @@ app.post('/api/debrid', requireAuth, async (req, res) => {
 
         console.log('🔄 Processing debrid request for:', link);
 
-        // Get fresh token (your working version)
+        // Get fresh token
         const token = await getFreshToken();
         console.log('✅ Got fresh token');
 
-        // Make debrid request (your working version)
+        // Make debrid request
         const debridResponse = await axios.post(`${API_BASE_URL}?action=getLink&token=${token}`, 
             `link=${encodeURIComponent(link)}`,
             {
@@ -764,15 +357,15 @@ app.post('/api/debrid', requireAuth, async (req, res) => {
                 filename: debridResponse.data.filename
             };
 
-            // Log to database (FIXED: Use _id)
+            // Log to database
             await db.addLinkHistory(
-                req.user._id, 
+                req.user.id, 
                 link, 
                 result.downloadLink, 
                 result.filename, 
                 userIP
             );
-            await db.updateDailyUsage(req.user._id);
+            await db.updateDailyUsage(req.user.id);
 
             // Send Telegram notification (non-blocking)
             sendTelegramNotification(
@@ -803,10 +396,10 @@ app.post('/api/debrid', requireAuth, async (req, res) => {
     }
 });
 
-// User status route (FIXED)
+// User status route
 app.get('/api/user/status', requireAuth, async (req, res) => {
     try {
-        const dailyUsage = await db.getDailyUsage(req.user._id);  // FIXED: Use _id
+        const dailyUsage = await db.getDailyUsage(req.user.id);
         res.json({
             user: {
                 username: req.user.username,
@@ -821,7 +414,7 @@ app.get('/api/user/status', requireAuth, async (req, res) => {
     }
 });
 
-// Telegram test endpoint
+// Simplified Telegram test endpoint
 app.get('/api/test-telegram', requireAuth, async (req, res) => {
     if (!TELEGRAM_ENABLED) {
         return res.json({ 
@@ -842,10 +435,9 @@ app.get('/api/test-telegram', requireAuth, async (req, res) => {
 • <i>HTML Formatting</i>
 • <i>Message Delivery</i>
 • <i>API Connection</i>
-• <i>User Registration</i>
 
-━━━━━━━━━━━━━━━━━━━━━
-<i>🇵🇸 This is an automated test message.</i>`;
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<i>This is an automated test message.</i>`;
 
         const response = await axios.post(
             `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`,
@@ -886,7 +478,55 @@ app.post('/webhook/telegram', async (req, res) => {
     }
 
     try {
-        await handleTelegramUpdate(req.body);
+        const update = req.body;
+
+        if (update.message && update.message.text) {
+            const chatId = update.message.chat.id;
+            const text = update.message.text;
+
+            if (chatId.toString() === TELEGRAM_CHAT_ID) {
+                if (text === '/status') {
+                    const statusMessage = `
+🟢 <b>MedusaXD Tracker Status</b>
+
+<b>📊 System Status:</b> <i>Online</i>
+<b>🤖 Bot Status:</b> <i>Active</i>
+<b>📡 Monitoring:</b> <i>All link generations</i>
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<i>🐍 MedusaXD Debrid Tracker</i>`;
+
+                    await axios.post(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+                        chat_id: chatId,
+                        text: statusMessage,
+                        parse_mode: 'HTML'
+                    });
+                } else if (text === '/help') {
+                    const helpMessage = `
+🤖 <b>MedusaXD Tracker Bot</b>
+
+<b>📋 Available Commands:</b>
+<code>/status</code> - Check tracker status
+<code>/help</code> - Show this help menu
+
+<b>🔔 Automatic Notifications:</b>
+• <i>New link generations</i>
+• <i>User activity tracking</i>  
+• <i>Source domain monitoring</i>
+• <i>IP address logging</i>
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<i>This bot automatically monitors all MedusaXD activity.</i>`;
+
+                    await axios.post(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+                        chat_id: chatId,
+                        text: helpMessage,
+                        parse_mode: 'HTML'
+                    });
+                }
+            }
+        }
+
         res.status(200).send('OK');
     } catch (error) {
         console.error('Telegram webhook error:', error);
@@ -905,7 +545,9 @@ app.get('/admin', (req, res) => {
 
 app.listen(PORT, () => {
     console.log(`🚀 MedusaXD Debrid server running on port ${PORT}`);
-    console.log('📱 Telegram bot:', TELEGRAM_ENABLED ? 'enabled' : 'disabled');
-    console.log('💾 Database: MongoDB Atlas');
-    console.log('🌐 Site URL:', SITE_URL);
+    console.log('📱 Telegram tracking:', TELEGRAM_ENABLED ? 'enabled' : 'disabled');
+    if (TELEGRAM_ENABLED) {
+        console.log('📱 Bot Token configured');
+        console.log('📱 Chat ID:', TELEGRAM_CHAT_ID);
+    }
 });
